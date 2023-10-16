@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  machineT-msp:
+    container_name: machineT-msp
+    image: ij-mt-msp:0.2v
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "10"
+    environment:
+      MQTT_HOST: ${MQTT_HOST}
+      MQTT_TOPIC: ${MQTT_TOPIC}
+      PLC_HOST: ${PLC_HOST}
+      PLC_PORT: ${PLC_PORT}
+      DEVICES_ASCII: ${DEVICES_ASCII}
+      DEVICES_16bit: ${DEVICES_16bit}
+      DEVICES_32bit: ${DEVICES_32bit}
+      DEVICES_2bit: ${DEVICES_2bit}
+
+  subscriber:
+    container_name: machineT-msp-subscriber
+    image: patch:0.5v # Machine T version 0.5v
+    restart: always
+    environment:
+      API_URL: ${API_URL}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      MQTT_HOST: ${MQTT_SUB_HOST}
+      MQTT_PORT: ${MQTT_SUB_PORT}
+      MQTT_TOPIC: ${MQTT_SUB_TOPIC}
+      BASH_API: ${BASH_API}

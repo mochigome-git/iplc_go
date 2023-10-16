@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  subscriber:
+    container_name: machineT-msp-subscriber
+    image: patch:0.5v # Machine T version 0.5v
+    restart: always
+    environment:
+      API_URL: ${API_URL}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      MQTT_HOST: ${MQTT_SUB_HOST}
+      MQTT_PORT: ${MQTT_SUB_PORT}
+      MQTT_TOPIC: ${MQTT_SUB_TOPIC}
+      BASH_API: ${BASH_API}

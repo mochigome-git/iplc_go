@@ -22,7 +22,7 @@ services:
 
   subscriber:
     container_name: machineT-msp-subscriber
-    image: patch:0.5v # Machine T version 0.5v
+    image: patch:0.6v # Machine T version 0.6v
     restart: always
     environment:
       API_URL: ${API_URL}
@@ -31,3 +31,6 @@ services:
       MQTT_PORT: ${MQTT_SUB_PORT}
       MQTT_TOPIC: ${MQTT_SUB_TOPIC}
       BASH_API: ${BASH_API}
+      TRIGGER_DEVICE: ${TRIGGER_DEVICE}
+      LOOPING: ${LOOPING}
+      FILTER: ${FILTER}

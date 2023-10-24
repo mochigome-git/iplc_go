@@ -22,7 +22,7 @@ services:
 
   subscriber:
     container_name: machineT-msp-subscriber
-    image: patch:0.6v # Machine T version 0.6v
+    image: patch:0.7v # Machine T version 0.7v
     restart: always
     environment:
       API_URL: ${API_URL}

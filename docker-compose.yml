@@ -3,7 +3,7 @@ version: "3.8"
 services:
   machineT-msp:
     container_name: machineT-msp
-    image: ij-mt-msp:0.2v
+    image: mochigome/ij-mt-msp:0.4v
     restart: always
     logging:
       driver: "json-file"
@@ -22,7 +22,7 @@ services:
 
   subscriber:
     container_name: machineT-msp-subscriber
-    image: patch:0.7v # Machine T version 0.7v
+    image: mochigome/patch:0.7v
     restart: always
     environment:
       API_URL: ${API_URL}

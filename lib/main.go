@@ -128,10 +128,10 @@ func main() {
 						os.Exit(1)
 						return
 					default:
-						value, err := plc.ReadData(device.DeviceType, device.DeviceNumber, device.NumberRegisters)
+						value, err := ReadDataWithContext(ctx, device.DeviceType, device.DeviceNumber, device.NumberRegisters)
 						if err != nil {
 							logger.Printf("Error reading data from PLC for device %s: %s", device.DeviceType+strconv.Itoa(int(device.DeviceNumber)), err)
-							continue // Skip this device and move to the next
+							break // Skip this device and move to the next
 						}
 						message := map[string]interface{}{
 							"address": device.DeviceType + strconv.Itoa(int(device.DeviceNumber)),
@@ -151,4 +151,18 @@ func main() {
 
 	}
 
+}
+
+func ReadDataWithContext(ctx context.Context, deviceType string, deviceNumber uint16, numRegisters uint16) (value interface{}, err error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+		// Perform the actual data reading operation
+		value, err = plc.ReadData(ctx, deviceType, deviceNumber, numRegisters)
+		if err != nil {
+			return nil, err
+		}
+		return value, nil
+	}
 }

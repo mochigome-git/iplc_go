@@ -31,7 +31,7 @@ func New3EClient(host string, port int, stn *station) (Client, error) {
 	return &client3E{tcpAddr: tcpAddr, stn: stn}, nil
 }
 
-func (c *client3E) Read(deviceName string, offset, numPoints int64) ([]byte, error) {
+func (c *client3E) Read(deviceName string, offset int64, numPoints int64) ([]byte, error) {
 	requestStr := c.stn.BuildReadRequest(deviceName, offset, numPoints)
 
 	// TODO binary protocol

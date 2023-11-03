@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -9,7 +10,7 @@ import (
 // Define the device struct with the address field
 type Device struct {
 	DeviceType      string
-	DeviceNumber    uint16
+	DeviceNumber    string
 	NumberRegisters uint16
 }
 
@@ -21,17 +22,15 @@ func ParseDeviceAddresses(envVar string, logger *log.Logger) ([]Device, error) {
 	}
 	var devices []Device
 	for i := 0; i < len(deviceStrings); i += 3 {
-		deviceNumber, err := strconv.ParseUint(deviceStrings[i+1], 10, 16)
-		if err != nil {
-			logger.Printf("Error parsing device number: %v", err)
-		}
+		deviceNumber := deviceStrings[i+1]
+
 		numberRegisters, err := strconv.ParseUint(deviceStrings[i+2], 10, 16)
 		if err != nil {
 			logger.Fatalf("Error parsing number of registers: %v", err)
 		}
 		devices = append(devices, Device{
 			DeviceType:      deviceStrings[i],
-			DeviceNumber:    uint16(deviceNumber),
+			DeviceNumber:    fmt.Sprint(deviceNumber),
 			NumberRegisters: uint16(numberRegisters),
 		})
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -17,14 +16,14 @@ import (
 )
 
 var (
-	mqttHost     string
-	plcHost      string
-	plcPort      int
-	devices16    string
-	devices32    string
-	devices2     string
-	devicesAscii string
-	mqttTopic    string
+	mqttHost  string
+	plcHost   string
+	plcPort   int
+	devices16 string
+	//devices32    string
+	devices2 string
+	//devicesAscii string
+	mqttTopic string
 )
 
 func init() {
@@ -33,10 +32,10 @@ func init() {
 	plcHost = os.Getenv("PLC_HOST")
 	plcPort = config.GetEnvAsInt("PLC_PORT", 5011)
 	devices16 = os.Getenv("DEVICES_16bit")
-	devices32 = os.Getenv("DEVICES_32bit")
+	//devices32 = os.Getenv("DEVICES_32bit")
 	devices2 = os.Getenv("DEVICES_2bit")
 	mqttTopic = os.Getenv("MQTT_TOPIC")
-	devicesAscii = os.Getenv("DEVICES_ASCII")
+	//devicesAscii = os.Getenv("DEVICES_ASCII")
 }
 
 func main() {
@@ -54,25 +53,25 @@ func main() {
 		logger.Fatalf("Error parsing device addresses: %v", err)
 	}
 
-	// Parse the device addresses for 32-bit devices
-	devices32Parsed, err := utils.ParseDeviceAddresses(devices32, logger)
-	if err != nil {
-		logger.Fatalf("Error parsing device addresses: %v", err)
-	}
-
+	//// Parse the device addresses for 32-bit devices
+	//devices32Parsed, err := utils.ParseDeviceAddresses(devices32, logger)
+	//if err != nil {
+	//	logger.Fatalf("Error parsing device addresses: %v", err)
+	//}
+	//
 	devices2Parsed, err := utils.ParseDeviceAddresses(devices2, logger)
 	if err != nil {
 		logger.Fatalf("Error parsing device addresses: %v", err)
 	}
 
 	// Parse the device addresses for text devices
-	devicesAsciiParsed, err := utils.ParseDeviceAddresses(devicesAscii, logger)
-	if err != nil {
-		logger.Fatalf("Error parsing device addresses: %v", err)
-	}
+	//devicesAsciiParsed, err := utils.ParseDeviceAddresses(devicesAscii, logger)
+	//if err != nil {
+	//	logger.Fatalf("Error parsing device addresses: %v", err)
+	//}
 
 	// Combine the 2-bit, 16-bit and 32-bit devices into a single slice
-	devices := append(devicesAsciiParsed, append(devices16Parsed, append(devices32Parsed, devices2Parsed...)...)...)
+	devices := append(devices16Parsed, devices2Parsed...)
 
 	// Initialize the MSP client
 	err = plc.InitMSPClient(plcHost, plcPort)
@@ -123,18 +122,18 @@ func main() {
 				for _, device := range devices {
 					select {
 					case <-ctx.Done():
-						logger.Printf("%s timed out. error: %s\n", device.DeviceType+strconv.Itoa(int(device.DeviceNumber)), ctx.Err())
+						logger.Printf("%s timed out. error: %s\n", device.DeviceType+device.DeviceNumber, ctx.Err())
 						logger.Println("Program terminated by os.Exit")
 						os.Exit(1)
 						return
 					default:
 						value, err := ReadDataWithContext(ctx, device.DeviceType, device.DeviceNumber, device.NumberRegisters)
 						if err != nil {
-							logger.Printf("Error reading data from PLC for device %s: %s", device.DeviceType+strconv.Itoa(int(device.DeviceNumber)), err)
+							logger.Printf("Error reading data from PLC for device %s: %s", device.DeviceType+device.DeviceNumber, err)
 							break // Skip this device and move to the next
 						}
 						message := map[string]interface{}{
-							"address": device.DeviceType + strconv.Itoa(int(device.DeviceNumber)),
+							"address": device.DeviceType + device.DeviceNumber,
 							"value":   value,
 						}
 						dataCh <- message
@@ -153,7 +152,7 @@ func main() {
 
 }
 
-func ReadDataWithContext(ctx context.Context, deviceType string, deviceNumber uint16, numRegisters uint16) (value interface{}, err error) {
+func ReadDataWithContext(ctx context.Context, deviceType string, deviceNumber string, numRegisters uint16) (value interface{}, err error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()

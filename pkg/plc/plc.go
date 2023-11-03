@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"strconv"
 
 	"nk2-PLCcapture-go/pkg/mcp"
 )
@@ -29,7 +30,7 @@ func InitMSPClient(plcHost string, plcPort int) error {
 }
 
 // ReadData reads data from the PLC for the specified device.
-func ReadData(ctx context.Context, deviceType string, deviceNumber uint16, numberRegisters uint16) (interface{}, error) {
+func ReadData(ctx context.Context, deviceType string, deviceNumber string, numberRegisters uint16) (interface{}, error) {
 	if msp == nil {
 		return nil, fmt.Errorf("MSP client not initialized")
 	}
@@ -38,10 +39,22 @@ func ReadData(ctx context.Context, deviceType string, deviceNumber uint16, numbe
 	resultCh := make(chan interface{})
 	errCh := make(chan error)
 
+	deviceNumberInt64, err := strconv.ParseInt(deviceNumber, 10, 64)
+	if err != nil {
+
+		// Convert the offset string to an integer
+		deviceNumberInt64, err = strconv.ParseInt(deviceNumber, 16, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		//return nil, err
+	}
+
 	// Start a goroutine to perform the data reading
 	go func() {
 		// Read data from the PLC
-		data, err := msp.client.Read(deviceType, int64(deviceNumber), int64(numberRegisters))
+		data, err := msp.client.Read(deviceType, deviceNumberInt64, int64(numberRegisters))
 		if err != nil {
 			errCh <- err
 			return
@@ -49,7 +62,7 @@ func ReadData(ctx context.Context, deviceType string, deviceNumber uint16, numbe
 
 		var value interface{}
 		switch numberRegisters {
-		case 1: // 16-bit device
+		case 1: // 16-bit device 0 to 65535
 			// Parse 16-bit data
 			registerBinary, _ := mcp.NewParser().Do(data)
 			data = registerBinary.Payload
@@ -110,8 +123,16 @@ func ReadData(ctx context.Context, deviceType string, deviceNumber uint16, numbe
 
 			// Convert the bytes to a string
 			value = string(hexBytes)
+		case 5: // 16-bit device -37268 to 32767
+			// Parse 16-bit data with negative value
+			registerBinary, _ := mcp.NewParser().Do(data)
+			data = registerBinary.Payload
+			var val int16
+			for i := 0; i < len(data); i++ {
+				val |= int16(data[i]) << int(8*i)
+			}
+			value = val
 		default:
-
 			// Invalid number of registers
 			errCh <- fmt.Errorf("invalid number of registers: %d", numberRegisters)
 			return

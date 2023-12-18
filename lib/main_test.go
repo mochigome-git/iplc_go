@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	config.LoadEnv(".env.local")
+	//config.LoadEnv(".env.local")
 	mqttHost = os.Getenv("MQTT_HOST")
 	plcHost = os.Getenv("PLC_HOST")
 	plcPort = config.GetEnvAsInt("PLC_PORT", 5011)

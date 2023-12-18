@@ -16,26 +16,26 @@ import (
 )
 
 var (
-	mqttHost  string
-	plcHost   string
-	plcPort   int
-	devices16 string
-	//devices32    string
-	devices2 string
-	//devicesAscii string
-	mqttTopic string
+	mqttHost     string
+	plcHost      string
+	plcPort      int
+	devices16    string
+	devices32    string
+	devices2     string
+	devicesAscii string
+	mqttTopic    string
 )
 
 func init() {
-	//config.LoadEnv(".env.local")
+	config.LoadEnv(".env.local")
 	mqttHost = os.Getenv("MQTT_HOST")
 	plcHost = os.Getenv("PLC_HOST")
 	plcPort = config.GetEnvAsInt("PLC_PORT", 5011)
 	devices16 = os.Getenv("DEVICES_16bit")
-	//devices32 = os.Getenv("DEVICES_32bit")
+	devices32 = os.Getenv("DEVICES_32bit")
 	devices2 = os.Getenv("DEVICES_2bit")
 	mqttTopic = os.Getenv("MQTT_TOPIC")
-	//devicesAscii = os.Getenv("DEVICES_ASCII")
+	devicesAscii = os.Getenv("DEVICES_ASCII")
 }
 
 func main() {
@@ -48,33 +48,16 @@ func main() {
 	defer mqttclient.Disconnect(250)
 
 	// Parse the device addresses for 16-bit devices
-	devices16Parsed, err := utils.ParseDeviceAddresses(devices16, logger)
-	if err != nil {
-		logger.Fatalf("Error parsing device addresses: %v", err)
-	}
-
-	//// Parse the device addresses for 32-bit devices
-	//devices32Parsed, err := utils.ParseDeviceAddresses(devices32, logger)
-	//if err != nil {
-	//	logger.Fatalf("Error parsing device addresses: %v", err)
-	//}
-	//
-	devices2Parsed, err := utils.ParseDeviceAddresses(devices2, logger)
-	if err != nil {
-		logger.Fatalf("Error parsing device addresses: %v", err)
-	}
-
-	// Parse the device addresses for text devices
-	//devicesAsciiParsed, err := utils.ParseDeviceAddresses(devicesAscii, logger)
-	//if err != nil {
-	//	logger.Fatalf("Error parsing device addresses: %v", err)
-	//}
+	devices16Parsed, _ := ParseAndLogError(devices16, logger)
+	devices32Parsed, _ := ParseAndLogError(devices32, logger)
+	devices2Parsed, _ := ParseAndLogError(devices2, logger)
+	devicesAsciiParsed, _ := ParseAndLogError(devicesAscii, logger)
 
 	// Combine the 2-bit, 16-bit and 32-bit devices into a single slice
-	devices := append(devices16Parsed, devices2Parsed...)
+	devices := append(devices16Parsed, append(append(devices2Parsed, devices32Parsed...), devicesAsciiParsed...)...)
 
 	// Initialize the MSP client
-	err = plc.InitMSPClient(plcHost, plcPort)
+	err := plc.InitMSPClient(plcHost, plcPort)
 	if err != nil {
 		logger.Fatalf("Failed to initialize MSP client: %v", err)
 	} else {
@@ -164,4 +147,12 @@ func ReadDataWithContext(ctx context.Context, deviceType string, deviceNumber st
 		}
 		return value, nil
 	}
+}
+
+func ParseAndLogError(devices string, logger *log.Logger) ([]utils.Device, error) {
+	parsed, err := utils.ParseDeviceAddresses(devices, logger)
+	if err != nil {
+		logger.Printf("Error parsing device addresses: %v", err)
+	}
+	return parsed, err
 }

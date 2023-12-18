@@ -18,7 +18,8 @@ type Device struct {
 func ParseDeviceAddresses(envVar string, logger *log.Logger) ([]Device, error) {
 	deviceStrings := strings.Split(envVar, ",")
 	if len(deviceStrings)%3 != 0 {
-		logger.Fatalf("Invalid DEVICES environment variable: %s", envVar)
+		logger.Printf("Invalid DEVICES environment variable: %s", envVar)
+		return nil, nil
 	}
 	var devices []Device
 	for i := 0; i < len(deviceStrings); i += 3 {

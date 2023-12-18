@@ -40,7 +40,7 @@ func ReadData(ctx context.Context, deviceType string, deviceNumber string, numbe
 	errCh := make(chan error)
 
 	deviceNumberInt64, err := strconv.ParseInt(deviceNumber, 10, 64)
-	if err != nil {
+	if err != nil || deviceType == "Y" {
 
 		// Convert the offset string to an integer
 		deviceNumberInt64, err = strconv.ParseInt(deviceNumber, 16, 64)

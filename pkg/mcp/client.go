@@ -8,7 +8,7 @@ import (
 )
 
 type Client interface {
-	Read(deviceName string, offset, numPoints int64) ([]byte, error)
+	Read(deviceName string, offset, numPoints int64, fx bool) ([]byte, error)
 	Close() error
 }
 
@@ -21,6 +21,8 @@ type client3E struct {
 	conn net.Conn
 	// Mutex to synchronize access to conn
 	mu sync.Mutex
+
+	fx bool
 }
 
 func New3EClient(host string, port int, stn *station) (Client, error) {
@@ -31,8 +33,11 @@ func New3EClient(host string, port int, stn *station) (Client, error) {
 	return &client3E{tcpAddr: tcpAddr, stn: stn}, nil
 }
 
-func (c *client3E) Read(deviceName string, offset int64, numPoints int64) ([]byte, error) {
+func (c *client3E) Read(deviceName string, offset int64, numPoints int64, fx bool) ([]byte, error) {
 	requestStr := c.stn.BuildReadRequest(deviceName, offset, numPoints)
+	if fx {
+		requestStr = c.stn.BuildReadRequestFx(deviceName, offset, numPoints)
+	}
 
 	// TODO binary protocol
 	payload, err := hex.DecodeString(requestStr)

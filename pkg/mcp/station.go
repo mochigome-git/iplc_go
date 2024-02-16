@@ -7,7 +7,9 @@ import (
 )
 
 const (
-	SUB_HEADER = "5000" // 3Eフレームでは固定
+	SUB_HEADER      = "5000" // 3Eフレームでは固定
+	SUB_HEADER_FX16 = "01"   // 1Eフレーム 1点単位（ビット）
+	SUB_HEADER_FX01 = "00"   // 1Eフレーム 16点単位（ワード）
 
 	HEALTH_CHECK_COMMAND    = "1906" // binary mode expression. if ascii mode then 0619
 	HEALTH_CHECK_SUBCOMMAND = "0000"
@@ -33,6 +35,22 @@ var deviceCodes = map[string]string{
 	"B": "A0",
 	"W": "B4",
 	"D": "A8",
+}
+
+// FX Seris device name and hex value map
+var deviceCodesFx = map[string]string{
+	"X": "2058",
+	"Y": "2059",
+	"M": "204D",
+	"L": "204D",
+	"S": "204D",
+	"F": "2046",
+	"B": "2042",
+	"T": "4E54",
+	"C": "4E43",
+	"W": "2057",
+	"D": "2044",
+	"R": "2052",
 }
 
 // Each single PLC that is connected on MELSECNET and CC-Link IE is called a station.
@@ -164,6 +182,42 @@ func (h *station) BuildBitReadRequest(deviceName string, offset, numPoints int64
 		MONITORING_TIMER +
 		READ_COMMAND +
 		BIT_READ_SUB_COMMAND +
+		offsetHex +
+		deviceCode +
+		points
+}
+
+// BuildReadRequest represents MCP read as word command for FX CPU series.
+// deviceName is device code name like 'D' register.
+// offset is device offset addr.
+// numPoints is number of read device points.
+func (h *station) BuildReadRequestFx(deviceName string, offset, numPoints int64) string {
+	//NumberPoints 3 is bit device, else word device
+	SUB_HEADER_FX := SUB_HEADER_FX16
+	if numPoints == 6 {
+		SUB_HEADER_FX = SUB_HEADER_FX01
+		numPoints = 1
+	}
+
+	// get device symbol hex layout
+	deviceCode := deviceCodesFx[deviceName]
+
+	// offset convert to little endian layout
+	// MELSECコミュニケーションプロトコル リファレンス(p384) MELSEC-F: 4[byte]
+	offsetBuff := new(bytes.Buffer)
+	_ = binary.Write(offsetBuff, binary.LittleEndian, offset)
+	offsetHex := fmt.Sprintf("%X", offsetBuff.Bytes()[0:4]) // 仮にQシリーズとするので3byte trim
+
+	// read points
+	pointsBuff := new(bytes.Buffer)
+	_ = binary.Write(pointsBuff, binary.LittleEndian, numPoints)
+	points := fmt.Sprintf("%X", pointsBuff.Bytes()[0:2]) // 2byte固定
+
+	// 1Eフレームの交信伝文フォーマット
+	// ヘッダ|  サブヘッダ|  PC番号|  ACPU監視タイマ|  要求データ
+	return SUB_HEADER_FX +
+		h.pcNum +
+		MONITORING_TIMER +
 		offsetHex +
 		deviceCode +
 		points

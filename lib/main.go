@@ -4,13 +4,14 @@ import (
 	"context"
 	"log"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
-	"nk2-PLCcapture-go/pkg/config"
-	"nk2-PLCcapture-go/pkg/mqtt"
-	"nk2-PLCcapture-go/pkg/plc"
-	"nk2-PLCcapture-go/pkg/utils"
+	"inkjet-PLCcapture-go/pkg/config"
+	"inkjet-PLCcapture-go/pkg/mqtt"
+	"inkjet-PLCcapture-go/pkg/plc"
+	"inkjet-PLCcapture-go/pkg/utils"
 
 	jsoniter "github.com/json-iterator/go"
 )
@@ -24,6 +25,8 @@ var (
 	devices2     string
 	devicesAscii string
 	mqttTopic    string
+	fxStr        string
+	fx           bool
 )
 
 func init() {
@@ -36,6 +39,8 @@ func init() {
 	devices2 = os.Getenv("DEVICES_2bit")
 	mqttTopic = os.Getenv("MQTT_TOPIC")
 	devicesAscii = os.Getenv("DEVICES_ASCII")
+	fxStr = os.Getenv("PLC_MODEL")
+
 }
 
 func main() {
@@ -53,11 +58,19 @@ func main() {
 	devices2Parsed, _ := ParseAndLogError(devices2, logger)
 	devicesAsciiParsed, _ := ParseAndLogError(devicesAscii, logger)
 
+	// Set fx to false as default
+	fx, err := strconv.ParseBool(fxStr)
+	if err != nil || fxStr == "fx" {
+		fx = (fxStr == "fx") // Set fx to true if fxStr equals "fx"
+		// Handle the error, for example, set a default value or log a message
+		logger.Println("Error parsing fx:", err)
+	}
+
 	// Combine the 2-bit, 16-bit and 32-bit devices into a single slice
 	devices := append(devices16Parsed, append(append(devices2Parsed, devices32Parsed...), devicesAsciiParsed...)...)
 
 	// Initialize the MSP client
-	err := plc.InitMSPClient(plcHost, plcPort)
+	err = plc.InitMSPClient(plcHost, plcPort)
 	if err != nil {
 		logger.Fatalf("Failed to initialize MSP client: %v", err)
 	} else {
@@ -110,7 +123,7 @@ func main() {
 						os.Exit(1)
 						return
 					default:
-						value, err := ReadDataWithContext(ctx, device.DeviceType, device.DeviceNumber, device.NumberRegisters)
+						value, err := ReadDataWithContext(ctx, device.DeviceType, device.DeviceNumber, device.NumberRegisters, fx)
 						if err != nil {
 							logger.Printf("Error reading data from PLC for device %s: %s", device.DeviceType+device.DeviceNumber, err)
 							break // Skip this device and move to the next
@@ -135,13 +148,13 @@ func main() {
 
 }
 
-func ReadDataWithContext(ctx context.Context, deviceType string, deviceNumber string, numRegisters uint16) (value interface{}, err error) {
+func ReadDataWithContext(ctx context.Context, deviceType string, deviceNumber string, numRegisters uint16, fx bool) (value interface{}, err error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	default:
 		// Perform the actual data reading operation
-		value, err = plc.ReadData(ctx, deviceType, deviceNumber, numRegisters)
+		value, err = plc.ReadData(ctx, deviceType, deviceNumber, numRegisters, fx)
 		if err != nil {
 			return nil, err
 		}

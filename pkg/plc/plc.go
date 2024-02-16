@@ -7,7 +7,7 @@ import (
 	"math"
 	"strconv"
 
-	"nk2-PLCcapture-go/pkg/mcp"
+	"inkjet-PLCcapture-go/pkg/mcp"
 )
 
 type mspClient struct {
@@ -30,7 +30,7 @@ func InitMSPClient(plcHost string, plcPort int) error {
 }
 
 // ReadData reads data from the PLC for the specified device.
-func ReadData(ctx context.Context, deviceType string, deviceNumber string, numberRegisters uint16) (interface{}, error) {
+func ReadData(ctx context.Context, deviceType string, deviceNumber string, numberRegisters uint16, fx bool) (interface{}, error) {
 	if msp == nil {
 		return nil, fmt.Errorf("MSP client not initialized")
 	}
@@ -54,87 +54,16 @@ func ReadData(ctx context.Context, deviceType string, deviceNumber string, numbe
 	// Start a goroutine to perform the data reading
 	go func() {
 		// Read data from the PLC
-		data, err := msp.client.Read(deviceType, deviceNumberInt64, int64(numberRegisters))
+		data, err := msp.client.Read(deviceType, deviceNumberInt64, int64(numberRegisters), fx)
 		if err != nil {
 			errCh <- err
 			return
 		}
 
-		var value interface{}
-		switch numberRegisters {
-		case 1: // 16-bit device 0 to 65535
-			// Parse 16-bit data
-			registerBinary, _ := mcp.NewParser().Do(data)
-			data = registerBinary.Payload
-			var val uint16
-			for i := 0; i < len(data); i++ {
-				val |= uint16(data[i]) << uint(8*i)
-			}
-			value = val
-		case 2: // 32-bit device
-			// Parse 32-bit data
-			var val uint32
-			registerBinary, _ := mcp.NewParser().Do(data)
-			data = registerBinary.Payload
-			for i := 0; i < len(data); i++ {
-				val |= uint32(data[i]) << uint(8*i)
-			}
-			floatValue := math.Float32frombits(val)
-			floatString := fmt.Sprintf("%.6f", floatValue)
-			firstSixDigits := ""
-			numDigits := 0
-			for _, c := range floatString {
-				if c == '-' || c == '.' {
-					// Include minus sign and decimal point
-					firstSixDigits += string(c)
-				} else if numDigits < 6 {
-					// Only include the first 6 digits
-					firstSixDigits += string(c)
-					numDigits++
-				}
-			}
-			value = firstSixDigits
-		case 3: // 2-bit device
-			// Parse 2-bit data
-			registerBinary, _ := mcp.NewParser().Do(data)
-			data = registerBinary.Payload
-
-			var val uint8
-			if len(data) >= 1 {
-				// Extract the 2-bit value from the 8-bit data
-				val = uint8(data[0] & 0x01)
-			}
-			value = val
-		case 4: // ASCII hex device
-			// Parse 16-bit data
-			registerBinary, _ := mcp.NewParser().Do(data)
-			data = registerBinary.Payload
-			var val uint16
-			for i := 0; i < len(data); i++ {
-				val |= uint16(data[i]) << uint(8*i)
-			}
-			text := fmt.Sprintf("%X", val)
-
-			// Decode the hexadecimal string into bytes
-			hexBytes, err := hex.DecodeString(text)
-			if err != nil {
-				fmt.Errorf("error decoding hexadecimal string: %s", err)
-			}
-
-			// Convert the bytes to a string
-			value = string(hexBytes)
-		case 5: // 16-bit device -37268 to 32767
-			// Parse 16-bit data with negative value
-			registerBinary, _ := mcp.NewParser().Do(data)
-			data = registerBinary.Payload
-			var val int16
-			for i := 0; i < len(data); i++ {
-				val |= int16(data[i]) << int(8*i)
-			}
-			value = val
-		default:
-			// Invalid number of registers
-			errCh <- fmt.Errorf("invalid number of registers: %d", numberRegisters)
+		// Parse the data based on the number of registers and fx condition
+		value, err := ParseData(data, int(numberRegisters), fx)
+		if err != nil {
+			errCh <- err
 			return
 		}
 
@@ -152,5 +81,71 @@ func ReadData(ctx context.Context, deviceType string, deviceNumber string, numbe
 	case value := <-resultCh:
 		// Data reading operation completed successfully
 		return value, nil
+	}
+}
+
+// ParseData parses the data based on the specified number of registers and fx condition
+func ParseData(data []byte, numberRegisters int, fx bool) (interface{}, error) {
+	registerBinary, _ := mcp.NewParser().Do(data)
+	if fx {
+		registerBinary, _ = mcp.NewParser().DoFx(data)
+	}
+	data = registerBinary.Payload
+
+	switch numberRegisters {
+	case 1, 5: // 16-bit devices
+		var val uint16
+		for i := 0; i < len(data); i++ {
+			val |= uint16(data[i]) << uint(8*i)
+		}
+		if numberRegisters == 5 {
+			return int16(val), nil // For case 5, return as int16
+		}
+		return val, nil
+	case 2: // 32-bit device
+		var val uint32
+		for i := 0; i < len(data); i++ {
+			val |= uint32(data[i]) << uint(8*i)
+		}
+		floatValue := math.Float32frombits(val)
+		floatString := fmt.Sprintf("%.6f", floatValue)
+		firstSixDigits := ""
+		numDigits := 0
+		for _, c := range floatString {
+			if c == '-' || c == '.' {
+				firstSixDigits += string(c)
+			} else if numDigits < 6 {
+				firstSixDigits += string(c)
+				numDigits++
+			}
+		}
+		return firstSixDigits, nil
+	case 3: // 2-bit device
+		var val uint8
+		if len(data) >= 1 {
+			val = uint8(data[0] & 0x01)
+		}
+		return val, nil
+	case 4: // ASCII hex device
+		var val uint16
+		for i := 0; i < len(data); i++ {
+			val |= uint16(data[i]) << uint(8*i)
+		}
+		text := fmt.Sprintf("%X", val)
+		hexBytes, err := hex.DecodeString(text)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding hexadecimal string: %s", err)
+		}
+		return string(hexBytes), nil
+	case 6:
+		var val uint16
+		for i := 0; i < len(data); i++ {
+			val |= uint16(data[i]/10) << uint(8*i)
+		}
+
+		hexadecimalString := fmt.Sprintf("%X", val)
+		return hexadecimalString, nil
+	default:
+		return nil, fmt.Errorf("invalid number of registers: %d", numberRegisters)
 	}
 }

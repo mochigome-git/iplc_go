@@ -59,3 +59,22 @@ func (p *parser) Do(resp []byte) (*Response, error) {
 		Payload:        payloadB,
 	}, nil
 }
+
+// 1Eフレーム:応答伝文 Binary
+// ヘッダ | サブヘッダ | 終了コード |  応答データ
+// MELSECコミュニケーションプロトコルリファレンスマニュアル(p384)
+func (p *parser) DoFx(resp []byte) (*Response, error) {
+	if len(resp) < 3 {
+		return nil, errors.New("length must be larger than 22 byte")
+	}
+
+	subHeaderB := resp[0:1]
+	endCodeB := resp[1:2]
+	payloadB := resp[2:]
+
+	return &Response{
+		SubHeader: fmt.Sprintf("%X", subHeaderB),
+		EndCode:   fmt.Sprintf("%X", endCodeB),
+		Payload:   payloadB,
+	}, nil
+}

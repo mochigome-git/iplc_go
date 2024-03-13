@@ -137,14 +137,13 @@ func ParseData(data []byte, numberRegisters int, fx bool) (interface{}, error) {
 			return nil, fmt.Errorf("error decoding hexadecimal string: %s", err)
 		}
 		return string(hexBytes), nil
-	case 6:
+	case 6: // 2-bit device for fx
 		var val uint16
 		for i := 0; i < len(data); i++ {
 			val |= uint16(data[i]/10) << uint(8*i)
 		}
 
-		hexadecimalString := fmt.Sprintf("%X", val)
-		return hexadecimalString, nil
+		return val, nil
 	default:
 		return nil, fmt.Errorf("invalid number of registers: %d", numberRegisters)
 	}

@@ -1,5 +1,5 @@
 # Stage 1: Build the Go program
-FROM golang:1.20-alpine AS build
+FROM golang:1.21-alpine AS build
 WORKDIR /opt/inkjet-PLCcapture-go
 
 # Copy the project files and build the program

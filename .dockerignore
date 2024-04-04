@@ -1,0 +1,9 @@
+.git
+.DS_Store
+*.log
+.env
+.env.local
+
+# Ignore the 'certs' folder
+certs/*
+root/certs/*

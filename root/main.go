@@ -13,33 +13,44 @@ import (
 	"inkjet-PLCcapture-go/pkg/plc"
 	"inkjet-PLCcapture-go/pkg/utils"
 
+	MQTT "github.com/eclipse/paho.mqtt.golang"
 	jsoniter "github.com/json-iterator/go"
 )
 
 var (
-	mqttHost     string
-	plcHost      string
-	plcPort      int
-	devices16    string
-	devices32    string
-	devices2     string
-	devicesAscii string
-	mqttTopic    string
-	fxStr        string
-	fx           bool
+	// PLC configure
+	plcHost      string // plcHost stores the PLC's hostname
+	plcPort      int    // plcPort stores the PLC's port number
+	fxStr        string // Mitsubishi PLC FX series true =1 false =0
+	devices16    string // store 16bit device for SLMP(Seamless Message Protocol) query
+	devices32    string // store 32bit device for SLMP(Seamless Message Protocol) query
+	devices2     string // store 2bit device for SLMP(Seamless Message Protocol) query
+	devicesAscii string // convert Ascii to text
+
+	// MQTT Broker configure
+	mqttHost      string // mqtthost stores the MQTT broker's hostname
+	mqttTopic     string // topic stores the topic of the MQTT broker
+	mqttsStr      string // Turn on for TLS connection
+	ECScaCert     string // ESC verion direct read from params store
+	ECSclientCert string // ESC verion direct read from params store
+	ECSclientKey  string // ESC verion direct read from params store
 )
 
 func init() {
 	config.LoadEnv(".env.local")
-	mqttHost = os.Getenv("MQTT_HOST")
 	plcHost = os.Getenv("PLC_HOST")
 	plcPort = config.GetEnvAsInt("PLC_PORT", 5011)
+	fxStr = os.Getenv("PLC_MODEL")
 	devices16 = os.Getenv("DEVICES_16bit")
 	devices32 = os.Getenv("DEVICES_32bit")
 	devices2 = os.Getenv("DEVICES_2bit")
 	mqttTopic = os.Getenv("MQTT_TOPIC")
 	devicesAscii = os.Getenv("DEVICES_ASCII")
-	fxStr = os.Getenv("PLC_MODEL")
+	mqttHost = os.Getenv("MQTT_HOST")
+	mqttsStr = os.Getenv("MQTTS_ON")
+	ECScaCert = os.Getenv("ECS_MQTT_CA_CERTIFICATE")
+	ECSclientCert = os.Getenv("ECS_MQTT_CLIENT_CERTIFICATE")
+	ECSclientKey = os.Getenv("ECS_MQTT_PRIVATE_KEY")
 
 }
 
@@ -48,8 +59,19 @@ func main() {
 	// Create a logger to use for logging messages
 	logger := log.New(os.Stdout, "", log.LstdFlags)
 
-	// Connect to the MQTT server
-	mqttclient := mqtt.NewMQTTClient(mqttHost, logger)
+	// Parse the string value into a boolean, defaulting to false if parsing fails
+	mqtts, _ := strconv.ParseBool(mqttsStr)
+
+	var mqttclient MQTT.Client
+	// Create MQTT client based on whether mqtts is true or false
+	if mqtts {
+		//  verison for normal docker, docker-compose
+		//mqttclient = mqtt.NewMQTTClientWithTLS(mqttHost, caCertFile, clientCertFile, clientKeyFile, logger)
+		//  version when running in AWS ECS
+		mqttclient = mqtt.ECSNewMQTTClientWithTLS(mqttHost, ECScaCert, ECSclientCert, ECSclientKey, logger)
+	} else {
+		mqttclient = mqtt.NewMQTTClient(mqttHost, logger)
+	}
 	defer mqttclient.Disconnect(250)
 
 	// Parse the device addresses for 16-bit devices
